@@ -35,16 +35,15 @@ class Server:
 
     def handle_client(self, client_socket, client_address):
         try:
-            while self.running:
-                request = client_socket.recv(1024).decode("utf-8")
-                if not request:
-                    break
-                print(f"Requisição recebida do cliente {client_address}: {request}")
-                response = {
-                    "status": 200,
-                    "body": "",
-                }
-                client_socket.send(json.dumps(response).encode("utf-8"))
+            request = client_socket.recv(1024).decode("utf-8")
+            if not request:
+                raise Exception
+            print(f"Requisição recebida do cliente {client_address}: {request}")
+            response = {
+                "status": 200,
+                "body": "",
+            }
+            client_socket.send(json.dumps(response).encode("utf-8"))
         except Exception as e:
             print(f"Aconteceu um erro ao lidar com cliente {client_address}: {e}")
         finally:
