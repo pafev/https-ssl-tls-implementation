@@ -7,6 +7,7 @@ from cryptography.hazmat.primitives.asymmetric import ec
 
 from crypto.gen_keys import derive_key, gen_exchange_keys
 from crypto.format import pemToPublicKey, publicKeyToPem
+from crypto.encryption import get_cipher
 
 
 class Server:
@@ -63,15 +64,21 @@ class Server:
         return client
 
     def handle_http_request(self, client, client_address) -> None:
-        request = client["socket"].recv(1024).decode("utf-8")
-        if not request:
+        encrypt, decrypt = get_cipher(client["session key"])
+        encrypted_request = client["socket"].recv(1024)
+        if not encrypted_request:
             raise Exception
-        print(f"Requisição recebida do cliente {client_address}: {request}")
+        a = decrypt.update(encrypted_request) + decrypt.finalize()
+        request = a.decode("utf-8")
+        print(f"Requisição recebida do cliente {client_address}:\n{request}")
         response = {
             "status": 200,
             "body": "",
         }
-        client["socket"].send(json.dumps(response).encode("utf-8"))
+        encrypted_response = (
+            encrypt.update(json.dumps(response).encode("utf-8")) + encrypt.finalize()
+        )
+        client["socket"].send(encrypted_response)
 
     def handle_client(self, client_socket, client_address) -> None:
         try:

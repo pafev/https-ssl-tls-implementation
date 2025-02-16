@@ -14,6 +14,6 @@ def gen_exchange_keys():
 
 def derive_key(shared_key: bytes, info: bytes) -> bytes:
     derived_key = HKDF(
-        algorithm=hashes.SHA3_256(), length=32, salt=None, info=info
+        algorithm=hashes.SHA3_256(), length=24, salt=None, info=info
     ).derive(shared_key)
     return derived_key
