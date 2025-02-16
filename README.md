@@ -43,7 +43,7 @@ pip install -e .
 python3 server/main.py
 ```
 
-4 - Run client in another bash (open another bash and repeat steps 1 & 2)
+4 - Run client in another bash (open another bash and repeat step 1)
 
 ```bash
 python3 client/main.py
