@@ -11,7 +11,15 @@ from crypto.encryption import get_cipher
 
 
 class Server:
+    """Classe que representa um servidor que aceita conexões de clientes e realiza comunicação segura."""
+
     def __init__(self, host="localhost", port=5443) -> None:
+        """
+        Inicializa o servidor com o endereço e porta especificados.
+
+        :param host: Endereço do servidor.
+        :param port: Porta do servidor.
+        """
         self.host = host
         self.port = port
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -20,12 +28,14 @@ class Server:
         self.certificate = {"public key": None, "trusted ca": True}
 
     def init_server(self) -> None:
+        """Inicializa o servidor, vinculando o endereço e porta e começando a escutar por conexões."""
         server_address = (self.host, self.port)
         self.socket.bind(server_address)
         self.socket.listen(5)
         print(f"Servidor escutando em {self.host}, na porta {self.port}")
 
     def run(self) -> None:
+        """Executa o servidor, aceitando novas conexões de clientes e criando threads para cada cliente."""
         self.init_server()
         try:
             while self.running:
@@ -41,12 +51,22 @@ class Server:
             self.stop()
 
     def tls_handshake(self, client_socket, client_address) -> dict:
+        """
+        Realiza o handshake TLS com o cliente, estabelecendo uma sessão segura.
+
+        :param client_socket: Socket do cliente.
+        :param client_address: Endereço do cliente.
+        :return: Dicionário contendo informações do cliente, como socket, chave de sessão e cifra.
+        """
+        # Wait for client hello and verify compatibility
         client_hello = json.loads(client_socket.recv(2048).decode("utf-8"))
         if (
             client_hello["version"] != "TLS 1.3"
             or "AES_256" not in client_hello["cipher algorithms"]
         ):
             raise Exception
+
+        # Generate server random, session key and cipher for encrypt and decrypt
         server_random = os.urandom(16)
         private_key, public_key = gen_exchange_keys()
         peer_public_key = pemToPublicKey(
@@ -62,13 +82,19 @@ class Server:
         cipher = get_cipher(
             key=session_key, iv=bytes.fromhex(client_hello["extensions"]["iv"])
         )
+
+        # Mount certificate with public key for send to client
         certificate = self.certificate
         certificate["public key"] = publicKeyToPem(public_key=public_key).hex()
+
+        # Mount server hello message and send to client
         server_hello = {
             "certificate": certificate,
             "server random": server_random.hex(),
         }
         client_socket.send(json.dumps(server_hello).encode("utf-8"))
+
+        # Adds client to list of handled clients on the server
         client = {
             "socket": client_socket,
             "session key": session_key,
@@ -76,18 +102,34 @@ class Server:
             "address": client_address,
         }
         self.clients.append(client)
+
         return client
 
     def handle_http_request(self, client) -> None:
-        encrypted_request = client["socket"].recv(1024)
-        encrypt, decrypt = client["cipher"]
+        """
+        Lida com a requisição HTTP do cliente, descriptografando-a, processando-a e enviando uma resposta.
+
+        :param client: Dicionário contendo informações do cliente.
+        """
         client_address = client["address"]
+        encrypt, decrypt = client["cipher"]
+        client_socket = client["socket"]
+
+        # Wait for encrypted request from client
+        encrypted_request = client_socket.recv(1024)
         if not encrypted_request:
             raise Exception
+        print(
+            f"Requisicao http criptografada do cliente {client_address}: {encrypted_request}"
+        )
+
+        # Decrypt request from client
         request = (decrypt.update(encrypted_request) + decrypt.finalize()).decode(
             "utf-8"
         )
-        print(f"Requisição recebida do cliente {client_address}:\n{request}")
+        print(f"Requisição recebida do cliente {client_address}:{request}")
+
+        # Mount response and sends it to the client
         response = {
             "version": "HTTP/1.1",
             "status": "200 OK",
@@ -104,6 +146,12 @@ class Server:
         client["socket"].send(encrypted_response)
 
     def handle_client(self, client_socket, client_address) -> None:
+        """
+        Lida com a comunicação com o cliente, realizando o handshake TLS e processando requisições HTTP.
+
+        :param client_socket: Socket do cliente.
+        :param client_address: Endereço do cliente.
+        """
         try:
             client = self.tls_handshake(client_socket, client_address)
             try:
@@ -115,11 +163,17 @@ class Server:
             print(f"Erro no handshake tls com o cliente {client_address}: {e}")
 
     def remove_client(self, client) -> None:
+        """
+        Remove o cliente da lista de clientes e fecha o socket associado.
+
+        :param client: Dicionário contendo informações do cliente.
+        """
         if client in self.clients:
             self.clients.remove(client)
             client["socket"].close()
 
     def stop(self):
+        """Para o servidor, fechando todos os sockets de clientes e o socket do servidor."""
         for client in self.clients:
             client["socket"].close()
         self.running = False
