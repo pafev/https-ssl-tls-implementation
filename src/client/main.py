@@ -9,25 +9,36 @@ from crypto.encryption import get_cipher
 
 
 class Client:
+    """Classe que representa um cliente que se conecta a um servidor e realiza comunicação segura."""
+
     def __init__(self) -> None:
+        """Inicializa o cliente com um socket e variáveis de controle."""
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.running = False
         self.session_key: bytes = b""
         self.cipher: tuple = ()
 
     def connect(self, server_host="localhost", server_port=5443) -> bool:
+        """
+        Conecta ao servidor especificado.
+
+        :param server_host: Endereço do servidor.
+        :param server_port: Porta do servidor.
+        :return: True se a conexão for bem-sucedida, False caso contrário.
+        """
         try:
             server_address = (server_host, server_port)
             print(f"Se conectando ao servidor {server_address}")
             self.socket.connect(server_address)
             self.running = True
-
             return True
         except Exception as e:
             print(f"Erro ao se conectar com servidor: {e}")
             return False
 
     def tls_handshake(self) -> None:
+        """Realiza o handshake TLS com o servidor para estabelecer uma sessão segura."""
+        # Mount client hello for sends it to the server
         client_random = os.urandom(32)
         private_key, public_key = gen_exchange_keys()
         iv_aes = os.urandom(16)
@@ -44,9 +55,15 @@ class Client:
             },
         }
         self.socket.send(json.dumps(client_hello).encode("utf-8"))
+
+        # Wait for server hello
         server_hello = json.loads(self.socket.recv(2048).decode("utf-8"))
+
+        # Verify certificate
         if not server_hello["certificate"]["trusted ca"]:
-            raise Exception
+            raise Exception("Certificado SSL/TLS não confiável")
+
+        # Generate session key and cipher for encrypt and decrypt
         peer_public_key = pemToPublicKey(
             pem_public_key=bytes.fromhex(server_hello["certificate"]["public key"])
         )
@@ -61,6 +78,7 @@ class Client:
         self.cipher = (encrypt, decrypt)
 
     def send_http_request(self) -> None:
+        """Envia uma requisição HTTP ao servidor."""
         try:
             request = {
                 "method": "GET",
@@ -82,6 +100,7 @@ class Client:
             self.running = False
 
     def receive_http_response(self) -> None:
+        """Recebe a resposta HTTP do servidor e a imprime."""
         try:
             encrypted_res = self.socket.recv(1024)
             if not encrypted_res:
@@ -96,6 +115,7 @@ class Client:
             self.running = False
 
     def run(self) -> None:
+        """Executa o cliente, conectando e comunicando-se com o servidor."""
         if self.connect():
             try:
                 self.tls_handshake()
@@ -107,6 +127,7 @@ class Client:
                 self.disconnect()
 
     def disconnect(self) -> None:
+        """Desconecta do servidor e encerra a conexão."""
         self.socket.close()
         self.running = False
         print("Desconectado do servidor")
