@@ -55,5 +55,6 @@ class Client:
         print("Desconectado do servidor")
 
 
-client = Client()
-client.run()
+if __name__ == "__main__":
+    client = Client()
+    client.run()
