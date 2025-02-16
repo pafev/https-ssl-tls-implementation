@@ -5,6 +5,7 @@ import random
 from cryptography.hazmat.primitives.asymmetric import ec
 from crypto.format import pemToPublicKey, publicKeyToPem
 from crypto.gen_keys import derive_key, gen_exchange_keys
+from crypto.encryption import get_cipher
 
 
 class Client:
@@ -52,22 +53,27 @@ class Client:
             info=eval(client_random) + eval(server_hello["server random"]),
         )
 
-    def send_http_request(self) -> None:
+    def send_http_request(self, encrypt) -> None:
         try:
             request = {
                 "headers": {},
                 "method": "GET",
             }
-            self.socket.send(json.dumps(request).encode("utf-8"))
+            a = json.dumps(request).encode("utf-8")
+            encrypted_request = encrypt.update(a) + encrypt.finalize()
+            self.socket.send(encrypted_request)
         except Exception as e:
-            print(f"Erro ao enviar requisicao http ao servidor{e}")
+            print(f"Erro ao enviar requisicao http ao servidor: {e}")
             self.running = False
 
-    def receive_http_response(self) -> None:
+    def receive_http_response(self, decrypt) -> None:
         try:
-            response = json.loads(self.socket.recv(1024).decode("utf-8"))
-            if not response:
+            encrypted_response = self.socket.recv(1024)
+            if not encrypted_response:
                 raise Exception
+            response = (decrypt.update(encrypted_response) + decrypt.finalize()).decode(
+                "utf-8"
+            )
             print(f"Resposta do servidor:\n{response}")
         except Exception as e:
             print(f"Erro ao carregar resposta http do servidor: {e}")
@@ -77,8 +83,11 @@ class Client:
         if self.connect():
             try:
                 self.tls_handshake()
-                self.send_http_request()
-                self.receive_http_response()
+                if self.session_key:
+                    encrypt, decrypt = get_cipher(self.session_key)
+                    print(self.session_key)
+                    self.send_http_request(encrypt)
+                    self.receive_http_response(decrypt)
             except Exception as e:
                 print(f"Erro ao comecar operacao do cliente: {e}")
                 self.disconnect()
