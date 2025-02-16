@@ -53,11 +53,17 @@ class Client:
             info=eval(client_random) + eval(server_hello["server random"]),
         )
 
-    def send_http_request(self, encrypt, decrypt) -> None:
+    def send_http_request(self, encrypt) -> None:
         try:
             request = {
-                "headers": {},
                 "method": "GET",
+                "path": "/",
+                "version": "HTTP/1.1",
+                "headers": {
+                    "Host": "localhost:5443",
+                    "User-Agent": "self_https/0.1.0",
+                    "Accept": "*/*",
+                },
             }
             encrypted_request = (
                 encrypt.update(json.dumps(request).encode("utf-8")) + encrypt.finalize()
@@ -75,7 +81,7 @@ class Client:
             response = (decrypt.update(encrypted_response) + decrypt.finalize()).decode(
                 "utf-8"
             )
-            print(f"Resposta do servidor:\n\t{response}")
+            print(f"Resposta do servidor:\n{response}")
         except Exception as e:
             print(f"Erro ao carregar resposta http do servidor: {e}")
             self.running = False
@@ -86,7 +92,7 @@ class Client:
                 self.tls_handshake()
                 if self.session_key:
                     encrypt, decrypt = get_cipher(self.session_key)
-                    self.send_http_request(encrypt, decrypt)
+                    self.send_http_request(encrypt)
                     self.receive_http_response(decrypt)
             except Exception as e:
                 print(f"Erro ao comecar operacao do cliente: {e}")

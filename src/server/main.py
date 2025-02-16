@@ -71,10 +71,16 @@ class Server:
         request = (decrypt.update(encrypted_request) + decrypt.finalize()).decode(
             "utf-8"
         )
-        print(f"Requisição recebida do cliente {client_address}:\n\t{request}")
+        print(f"Requisição recebida do cliente {client_address}:\n{request}")
         response = {
-            "status": 200,
-            "body": "",
+            "version": "HTTP/1.1",
+            "status": "200 OK",
+            "headers": {
+                "Server": "self_https.server",
+                "Cache-Control": "no-store",
+                "Content-Type": "application/json",
+            },
+            "body": {"message": "Hello World"},
         }
         encrypted_response = (
             encrypt.update(json.dumps(response).encode("utf-8")) + encrypt.finalize()
