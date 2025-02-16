@@ -33,17 +33,20 @@ class Server:
         finally:
             self.stop()
 
+    def handle_http_request(self, client_socket, client_address):
+        request = client_socket.recv(1024).decode("utf-8")
+        if not request:
+            raise Exception
+        print(f"Requisição recebida do cliente {client_address}: {request}")
+        response = {
+            "status": 200,
+            "body": "",
+        }
+        client_socket.send(json.dumps(response).encode("utf-8"))
+
     def handle_client(self, client_socket, client_address):
         try:
-            request = client_socket.recv(1024).decode("utf-8")
-            if not request:
-                raise Exception
-            print(f"Requisição recebida do cliente {client_address}: {request}")
-            response = {
-                "status": 200,
-                "body": "",
-            }
-            client_socket.send(json.dumps(response).encode("utf-8"))
+            self.handle_http_request(client_socket, client_address)
         except Exception as e:
             print(f"Aconteceu um erro ao lidar com cliente {client_address}: {e}")
         finally:
