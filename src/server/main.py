@@ -5,6 +5,7 @@ from threading import Thread
 
 from cryptography.hazmat.primitives.asymmetric import ec
 
+from crypto.gen_certificate import gen_certificate
 from crypto.gen_keys import derive_key, gen_exchange_keys
 from crypto.format import pemToPublicKey, publicKeyToPem
 from crypto.encryption import get_cipher
@@ -25,7 +26,9 @@ class Server:
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.running = True
         self.clients = []
-        self.certificate = {"public key": None, "trusted ca": True}
+        self.certificate = gen_certificate(
+            country="BR", state="Brasilia-DF", org="pafev", common_host="localhost:5443"
+        )
 
     def init_server(self) -> None:
         """Inicializa o servidor, vinculando o endereço e porta e começando a escutar por conexões."""
@@ -72,6 +75,8 @@ class Server:
         peer_public_key = pemToPublicKey(
             pem_public_key=bytes.fromhex(client_hello["extensions"]["key share"])
         )
+        if not isinstance(peer_public_key, ec.EllipticCurvePublicKey):
+            raise Exception
         shared_key = private_key.exchange(
             algorithm=ec.ECDH(), peer_public_key=peer_public_key
         )
@@ -83,14 +88,11 @@ class Server:
             key=session_key, iv=bytes.fromhex(client_hello["extensions"]["iv"])
         )
 
-        # Mount certificate with public key for send to client
-        certificate = self.certificate
-        certificate["public key"] = publicKeyToPem(public_key=public_key).hex()
-
         # Mount server hello message and send to client
         server_hello = {
-            "certificate": certificate,
+            "certificate": self.certificate,
             "server random": server_random.hex(),
+            "extensions": {"key share": publicKeyToPem(public_key=public_key).hex()},
         }
         client_socket.send(json.dumps(server_hello).encode("utf-8"))
 

@@ -4,6 +4,7 @@ import os
 
 from cryptography.hazmat.primitives.asymmetric import ec
 from crypto.format import pemToPublicKey, publicKeyToPem
+from crypto.gen_certificate import verify_certificate
 from crypto.gen_keys import derive_key, gen_exchange_keys
 from crypto.encryption import get_cipher
 
@@ -60,13 +61,14 @@ class Client:
         server_hello = json.loads(self.socket.recv(2048).decode("utf-8"))
 
         # Verify certificate
-        if not server_hello["certificate"]["trusted ca"]:
-            raise Exception("Certificado SSL/TLS não confiável")
+        verify_certificate(server_hello["certificate"])
 
         # Generate session key and cipher for encrypt and decrypt
         peer_public_key = pemToPublicKey(
-            pem_public_key=bytes.fromhex(server_hello["certificate"]["public key"])
+            pem_public_key=bytes.fromhex(server_hello["extensions"]["key share"])
         )
+        if not isinstance(peer_public_key, ec.EllipticCurvePublicKey):
+            raise Exception
         shared_key = private_key.exchange(
             algorithm=ec.ECDH(), peer_public_key=peer_public_key
         )
