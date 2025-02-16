@@ -33,7 +33,7 @@ class Server:
         finally:
             self.stop()
 
-    def handle_http_request(self, client_socket, client_address):
+    def handle_http_request(self, client_socket, client_address) -> None:
         request = client_socket.recv(1024).decode("utf-8")
         if not request:
             raise Exception
@@ -44,7 +44,7 @@ class Server:
         }
         client_socket.send(json.dumps(response).encode("utf-8"))
 
-    def handle_client(self, client_socket, client_address):
+    def handle_client(self, client_socket, client_address) -> None:
         try:
             self.handle_http_request(client_socket, client_address)
         except Exception as e:
@@ -52,7 +52,7 @@ class Server:
         finally:
             self.remove_client(client_socket)
 
-    def remove_client(self, client_socket):
+    def remove_client(self, client_socket) -> None:
         if client_socket in self.clients:
             self.clients.remove(client_socket)
             client_socket.close()
