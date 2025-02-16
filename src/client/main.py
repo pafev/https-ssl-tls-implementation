@@ -107,11 +107,12 @@ class Client:
             encrypted_res = self.socket.recv(1024)
             if not encrypted_res:
                 raise Exception
+            print(f"\nResposta criptografa do servidor: {encrypted_res}")
             decrypt = self.cipher[1]
             response = (decrypt.update(encrypted_res) + decrypt.finalize()).decode(
                 "utf-8"
             )
-            print(f"Resposta do servidor:\n{response}")
+            print(f"\nResposta http descriptografada do servidor: {response}")
         except Exception as e:
             print(f"Erro ao carregar resposta http do servidor: {e}")
             self.running = False

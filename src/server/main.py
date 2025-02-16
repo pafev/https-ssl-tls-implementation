@@ -122,14 +122,16 @@ class Server:
         if not encrypted_request:
             raise Exception
         print(
-            f"Requisicao http criptografada do cliente {client_address}: {encrypted_request}"
+            f"\nRequisicao criptografada do cliente {client_address}: {encrypted_request}"
         )
 
         # Decrypt request from client
         request = (decrypt.update(encrypted_request) + decrypt.finalize()).decode(
             "utf-8"
         )
-        print(f"Requisição recebida do cliente {client_address}:{request}")
+        print(
+            f"\nConteudo da requisição http criptografada recebida do cliente {client_address}:{request}"
+        )
 
         # Mount response and sends it to the client
         response = {
@@ -142,10 +144,12 @@ class Server:
             },
             "body": {"message": "Hello World"},
         }
+        print(f"\nConteudo da resposta http ao cliente: {response}")
         encrypted_response = (
             encrypt.update(json.dumps(response).encode("utf-8")) + encrypt.finalize()
         )
         client["socket"].send(encrypted_response)
+        print(f"\nResposta criptografada enviada ao cliente: {encrypted_response}")
 
     def handle_client(self, client_socket, client_address) -> None:
         """
