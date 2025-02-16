@@ -1,3 +1,4 @@
+import json
 import socket
 from threading import Thread
 
@@ -10,12 +11,14 @@ class Server:
         self.running = True
         self.clients = []
 
-    def start(self):
+    def init_server(self) -> None:
         server_address = (self.host, self.port)
         self.socket.bind(server_address)
         self.socket.listen(5)
         print(f"Servidor escutando em {self.host}, na porta {self.port}")
 
+    def run(self) -> None:
+        self.init_server()
         try:
             while self.running:
                 client_socket, client_address = self.socket.accept()
@@ -33,12 +36,15 @@ class Server:
     def handle_client(self, client_socket, client_address):
         try:
             while self.running:
-                data = client_socket.recv(1024).decode("utf-8")
-                if not data:
+                request = client_socket.recv(1024).decode("utf-8")
+                if not request:
                     break
-                print(f"Mensagem recebida do cliente {client_address}: {data}")
-                response = "Mensagem recebida"
-                client_socket.send(response.encode("utf-8"))
+                print(f"Requisição recebida do cliente {client_address}: {request}")
+                response = {
+                    "status": 200,
+                    "body": "",
+                }
+                client_socket.send(json.dumps(response).encode("utf-8"))
         except Exception as e:
             print(f"Aconteceu um erro ao lidar com cliente {client_address}: {e}")
         finally:
@@ -57,4 +63,4 @@ class Server:
 
 
 server = Server()
-server.start()
+server.run()

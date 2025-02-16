@@ -1,5 +1,5 @@
 import socket
-from threading import Thread
+import json
 
 
 class Client:
@@ -19,39 +19,32 @@ class Client:
             print(f"Erro ao se conectar com servidor: {e}")
             return False
 
-    def receive_messages(self) -> None:
-        while self.running:
-            try:
-                message = self.socket.recv(1024).decode("utf-8")
-                if not message:
-                    break
-                print(f"\nResposta do servidor: {message}")
-            except Exception as e:
-                print(f"Erro ao receber resposta do servidor: {e}")
-                self.running = False
-                break
+    def send_http_request(self) -> None:
+        try:
+            request = {
+                "headers": {},
+                "method": "GET",
+            }
+            self.socket.send(json.dumps(request).encode("utf-8"))
+        except Exception as e:
+            print(f"Erro ao enviar requisicao http ao servidor{e}")
+            self.running = False
 
-    def send_messages(self) -> None:
-        while self.running:
-            try:
-                message = input(
-                    "Digite uma mensagem para o servidor (ou 'sair' para encerrar sessão): "
-                )
-                if message.lower() == "sair":
-                    break
-                self.socket.send(message.encode("utf-8"))
-            except Exception as e:
-                print(f"Erro ao enviar mensagem para o servidor: {e}")
-                self.running = False
-                break
+    def receive_http_response(self) -> None:
+        try:
+            response = json.loads(self.socket.recv(1024).decode())
+            if not response:
+                raise Exception
+            print(f"Resposta do servidor:\n{response}")
+        except Exception as e:
+            print(f"Erro ao carregar resposta http do servidor: {e}")
+            self.running = False
 
-    def start(self) -> None:
+    def run(self) -> None:
         if self.connect():
             try:
-                receive_thread = Thread(target=self.receive_messages)
-                receive_thread.start()
-                send_thread = Thread(target=self.send_messages)
-                send_thread.start()
+                self.send_http_request()
+                self.receive_http_response()
             except Exception:
                 print("Erro ao comecar operacao do cliente")
                 self.disconnect()
@@ -63,4 +56,4 @@ class Client:
 
 
 client = Client()
-client.start()
+client.run()
