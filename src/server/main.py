@@ -40,32 +40,42 @@ class Server:
         finally:
             self.stop()
 
-    def tls_handshake(self, client_socket) -> dict:
+    def tls_handshake(self, client_socket, client_address) -> dict:
         client_hello = json.loads(client_socket.recv(2048).decode("utf-8"))
         if (
             client_hello["version"] != "TLS 1.3"
             or "AES_256" not in client_hello["cipher algorithms"]
         ):
             raise Exception
-        server_random = str(random.randbytes(32))
-        private_key, self_public_key = gen_exchange_keys()
-        peer_public_key = pemToPublicKey(pem_public_key=eval(client_hello["key share"]))
+        server_random = str(random.randbytes(16))
+        private_key, public_key = gen_exchange_keys()
+        peer_public_key = pemToPublicKey(
+            pem_public_key=eval(client_hello["extensions"]["key share"])
+        )
         shared_key = private_key.exchange(
             algorithm=ec.ECDH(), peer_public_key=peer_public_key
         )
         session_key = derive_key(
             shared_key, info=eval(client_hello["client random"]) + eval(server_random)
         )
-        self.certificate["public key"] = str(publicKeyToPem(public_key=self_public_key))
-        server_hello = {"certificate": self.certificate, "server random": server_random}
+        cipher = get_cipher(key=session_key, iv=eval(client_hello["extensions"]["iv"]))
+        certificate = self.certificate
+        certificate["public key"] = str(publicKeyToPem(public_key=public_key))
+        server_hello = {"certificate": certificate, "server random": server_random}
         client_socket.send(json.dumps(server_hello).encode("utf-8"))
-        client = {"socket": client_socket, "session key": session_key}
+        client = {
+            "socket": client_socket,
+            "session key": session_key,
+            "cipher": cipher,
+            "address": client_address,
+        }
         self.clients.append(client)
         return client
 
-    def handle_http_request(self, client, client_address) -> None:
-        encrypt, decrypt = get_cipher(client["session key"])
+    def handle_http_request(self, client) -> None:
         encrypted_request = client["socket"].recv(1024)
+        encrypt, decrypt = client["cipher"]
+        client_address = client["address"]
         if not encrypted_request:
             raise Exception
         request = (decrypt.update(encrypted_request) + decrypt.finalize()).decode(
@@ -89,9 +99,9 @@ class Server:
 
     def handle_client(self, client_socket, client_address) -> None:
         try:
-            client = self.tls_handshake(client_socket)
+            client = self.tls_handshake(client_socket, client_address)
             try:
-                self.handle_http_request(client, client_address)
+                self.handle_http_request(client)
             except Exception as e:
                 print(f"Erro na comunicação https com o cliente {client_address}: {e}")
                 self.remove_client(client)
