@@ -1,6 +1,6 @@
 import socket
 import json
-import random
+import os
 
 from cryptography.hazmat.primitives.asymmetric import ec
 from crypto.format import pemToPublicKey, publicKeyToPem
@@ -28,19 +28,19 @@ class Client:
             return False
 
     def tls_handshake(self) -> None:
-        client_random = str(random.randbytes(32))
+        client_random = os.urandom(32)
         private_key, public_key = gen_exchange_keys()
-        iv_aes = random.randbytes(16)
+        iv_aes = os.urandom(16)
         client_hello = {
             "version": "TLS 1.3",
-            "client random": client_random,
+            "client random": client_random.hex(),
             "cipher algorithms": [
                 "AES_128",
                 "AES_256",
             ],
             "extensions": {
-                "key share": str(publicKeyToPem(public_key=public_key)),
-                "iv": str(iv_aes),
+                "key share": publicKeyToPem(public_key=public_key).hex(),
+                "iv": iv_aes.hex(),
             },
         }
         self.socket.send(json.dumps(client_hello).encode("utf-8"))
@@ -48,14 +48,14 @@ class Client:
         if not server_hello["certificate"]["trusted ca"]:
             raise Exception
         peer_public_key = pemToPublicKey(
-            pem_public_key=eval(server_hello["certificate"]["public key"])
+            pem_public_key=bytes.fromhex(server_hello["certificate"]["public key"])
         )
         shared_key = private_key.exchange(
             algorithm=ec.ECDH(), peer_public_key=peer_public_key
         )
         self.session_key = derive_key(
             shared_key=shared_key,
-            info=eval(client_random) + eval(server_hello["server random"]),
+            info=client_random + bytes.fromhex(server_hello["server random"]),
         )
         encrypt, decrypt = get_cipher(self.session_key, iv=iv_aes)
         self.cipher = (encrypt, decrypt)

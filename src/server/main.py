@@ -1,5 +1,5 @@
 import json
-import random
+import os
 import socket
 from threading import Thread
 
@@ -47,21 +47,27 @@ class Server:
             or "AES_256" not in client_hello["cipher algorithms"]
         ):
             raise Exception
-        server_random = str(random.randbytes(16))
+        server_random = os.urandom(16)
         private_key, public_key = gen_exchange_keys()
         peer_public_key = pemToPublicKey(
-            pem_public_key=eval(client_hello["extensions"]["key share"])
+            pem_public_key=bytes.fromhex(client_hello["extensions"]["key share"])
         )
         shared_key = private_key.exchange(
             algorithm=ec.ECDH(), peer_public_key=peer_public_key
         )
         session_key = derive_key(
-            shared_key, info=eval(client_hello["client random"]) + eval(server_random)
+            shared_key,
+            info=bytes.fromhex(client_hello["client random"]) + server_random,
         )
-        cipher = get_cipher(key=session_key, iv=eval(client_hello["extensions"]["iv"]))
+        cipher = get_cipher(
+            key=session_key, iv=bytes.fromhex(client_hello["extensions"]["iv"])
+        )
         certificate = self.certificate
-        certificate["public key"] = str(publicKeyToPem(public_key=public_key))
-        server_hello = {"certificate": certificate, "server random": server_random}
+        certificate["public key"] = publicKeyToPem(public_key=public_key).hex()
+        server_hello = {
+            "certificate": certificate,
+            "server random": server_random.hex(),
+        }
         client_socket.send(json.dumps(server_hello).encode("utf-8"))
         client = {
             "socket": client_socket,
