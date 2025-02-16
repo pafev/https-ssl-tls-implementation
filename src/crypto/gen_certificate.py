@@ -6,6 +6,15 @@ from crypto.format import pemToPublicKey, publicKeyToPem
 
 
 def gen_certificate(country: str, state: str, org: str, common_host: str) -> dict:
+    """
+    Gera um certificado digital autoassinado.
+
+    :param country: O país da entidade que está gerando o certificado.
+    :param state: O estado ou província da entidade.
+    :param org: O nome da organização.
+    :param common_host: O nome comum ou host associado ao certificado.
+    :return: Um dicionário representando o certificado, contendo os dados da entidade e a validação com chave pública e assinatura.
+    """
     certificate = {
         "data": {
             "country": country,
@@ -31,6 +40,12 @@ def gen_certificate(country: str, state: str, org: str, common_host: str) -> dic
 
 
 def verify_certificate(certificate: dict):
+    """
+    Verifica a validade de um certificado digital.
+
+    :param certificate: O dicionário do certificado a ser verificado, contendo os dados e a validação.
+    :raises Exception: Se a chave pública não for do tipo esperado ou se a verificação da assinatura falhar.
+    """
     public_key = pemToPublicKey(
         pem_public_key=bytes.fromhex(certificate["validation"]["public key"])
     )
