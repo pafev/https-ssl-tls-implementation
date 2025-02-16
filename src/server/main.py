@@ -68,9 +68,10 @@ class Server:
         encrypted_request = client["socket"].recv(1024)
         if not encrypted_request:
             raise Exception
-        a = decrypt.update(encrypted_request) + decrypt.finalize()
-        request = a.decode("utf-8")
-        print(f"Requisição recebida do cliente {client_address}:\n{request}")
+        request = (decrypt.update(encrypted_request) + decrypt.finalize()).decode(
+            "utf-8"
+        )
+        print(f"Requisição recebida do cliente {client_address}:\n\t{request}")
         response = {
             "status": 200,
             "body": "",
