@@ -3,9 +3,7 @@ import random
 import socket
 from threading import Thread
 
-from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric import ec
-from cryptography.hazmat.primitives.serialization import load_pem_public_key
 
 from crypto.gen_keys import derive_key, gen_exchange_keys
 from crypto.format import pemToPublicKey, publicKeyToPem
